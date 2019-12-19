@@ -293,21 +293,21 @@ namespace Crestron.SimplSharp.CrestronSockets
 				return client.DisableUDPServer ();
 			}
 
-		public override void Bind (IPEndPoint endPoint)
+		public override void Bind (IPEndPoint localEp)
 			{
 			var client = _client;
 
 			CheckDisposed ();
 
-			if (endPoint == null)
+			if (localEp == null)
 				throw new ArgumentNullException ("endPoint");
 
-			client.PortNumber = endPoint.Port;
+			client.PortNumber = localEp.Port;
 
 			if (client.EthernetAdapterToBindTo == EthernetAdapterType.EthernetUnknownAdapter)
-				client.EthernetAdapterToBindTo = endPoint.Address.GetAdapterTypeForAddress ();
+				client.EthernetAdapterToBindTo = localEp.Address.GetAdapterTypeForAddress ();
 
-			Debug.WriteLine ("UdpSocket Bind ({0}, {1})", endPoint, client.EthernetAdapterToBindTo);
+			Debug.WriteLine ("UdpSocket Bind ({0}, {1})", localEp, client.EthernetAdapterToBindTo);
 			}
 
 		public void JoinMulticastGroup (IPAddress multicastAddr)
@@ -855,9 +855,9 @@ namespace Crestron.SimplSharp.CrestronSockets
 			return size;
 			}
 
-		public override int SendTo (byte[] buffer, int offset, int size, SocketFlags flags, IPEndPoint endPoint)
+		public override int SendTo (byte[] buffer, int offset, int size, SocketFlags flags, IPEndPoint remoteEp)
 			{
-			return Send (buffer, offset, size, endPoint, false);
+			return Send (buffer, offset, size, remoteEp, false);
 			}
 
 		public override int Receive (byte[] buffer, int offset, int size, SocketFlags socketFlags)

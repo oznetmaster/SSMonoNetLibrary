@@ -132,6 +132,7 @@
     <Compile Include="UriParseComponents.cs" />
     <Compile Include="UriParser.cs" />
     <Compile Include="Utilities\IPUtilities.cs" />
+    <Compile Include="_LazyAsyncResult.cs" />
     <None Include="Properties\ControlSystem.cfg" />
   </ItemGroup>
   <Import Project="$(MSBuildBinPath)\Microsoft.CompactFramework.CSharp.targets" />

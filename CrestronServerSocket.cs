@@ -30,6 +30,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using Crestron.SimplSharp;
@@ -45,20 +46,20 @@ namespace Crestron.SimplSharp.CrestronSockets
 
 	public class CrestronServerSocket : CrestronSocket
 		{
-		internal CrestronListenerSocket _listener;
-		internal uint _clientIndex;
-		internal bool pendingReceive;
-		internal bool pendingSend;
-		internal bool waitingClose;
+		internal CrestronListenerSocket Listener;
+		internal uint ClientIndex;
+		internal bool PendingReceive;
+		internal bool PendingSend;
+		internal bool WaitingClose;
 
-		private readonly List<byte> dataBuffer = new List<byte> ();
-		private bool finishing;
+		private readonly List<byte> _dataBuffer = new List<byte> ();
+		private bool _finishing;
 
 		public CrestronServerSocket (CrestronListenerSocket socket, uint clientIndex)
 			{
-			_listener = socket;
-			_clientIndex = clientIndex;
-			Debug.WriteLine (string.Format ("Server ({2}, {3}): Slave socket created for clientId: {0} at {1}", clientIndex, _disposed != 0 || _listener._disposed != 0 ? "<unknown>" : InternalRemoteEndPoint.ToString (), _listener.LocalEndPointDebug, _disposed != 0 || _listener._disposed != 0 ? "<unknown>" : _listener.Server.EthernetAdapterToBindTo.ToString ()));
+			Listener = socket;
+			ClientIndex = clientIndex;
+			Debug.WriteLine (string.Format ("Server ({2}, {3}): Slave socket created for clientId: {0} at {1}", clientIndex, _disposed != 0 || Listener._disposed != 0 ? "<unknown>" : InternalRemoteEndPoint.ToString (), Listener.LocalEndPointDebug, _disposed != 0 || Listener._disposed != 0 ? "<unknown>" : Listener.Server.EthernetAdapterToBindTo.ToString ()));
 			}
 
 		private CrestronServerSocket ()
@@ -83,7 +84,7 @@ namespace Crestron.SimplSharp.CrestronSockets
 			{
 			get
 				{
-				var listener = _listener;
+				var listener = Listener;
 				var server = listener == null ? null : listener.Server;
 
 				if (_disposed != 0 || listener == null || listener._disposed != 0 || server == null)
@@ -91,10 +92,10 @@ namespace Crestron.SimplSharp.CrestronSockets
 
 				lock (listener.SyncLock)
 					{
-					if (_disposed != 0 || listener._disposed != 0 || server.GetServerSocketStatusForSpecificClient (_clientIndex) == SocketStatus.SOCKET_STATUS_SOCKET_NOT_EXIST)
+					if (_disposed != 0 || listener._disposed != 0 || server.GetServerSocketStatusForSpecificClient (ClientIndex) == SocketStatus.SOCKET_STATUS_SOCKET_NOT_EXIST)
 						return false;
 
-					return server.ClientConnected (_clientIndex);
+					return server.ClientConnected (ClientIndex);
 					}
 				}
 			}
@@ -103,18 +104,20 @@ namespace Crestron.SimplSharp.CrestronSockets
 			{
 			get
 				{
-				var listener = _listener;
+				var listener = Listener;
 				var server = listener == null ? null : listener.Server;
 
 				CheckDisposed ();
 
-				return server.GetIfDataAvailableForSpecificClient (_clientIndex);
+// ReSharper disable PossibleNullReferenceException
+				return server.GetIfDataAvailableForSpecificClient (ClientIndex);
+// ReSharper restore PossibleNullReferenceException
 				}
 			}
 
 		protected override void CheckDisposed ()
 			{
-			var listener = _listener;
+			var listener = Listener;
 			var server = listener == null ? null : listener.Server;
 
 			if (_disposed != 0 ||listener == null || listener._disposed != 0 || server == null)
@@ -123,22 +126,24 @@ namespace Crestron.SimplSharp.CrestronSockets
 
 		public override void Close ()
 			{
-			var listener = _listener;
+			var listener = Listener;
 			var server = listener == null ? null : listener.Server;
 
-			Debug.WriteLine (String.Format ("Server ({5}, {6}): Close for client index: {0} [endpoint = {4}, waitingClose = {1}, pendingSend = {2}, pendingReceive = {3}]", _clientIndex, waitingClose, pendingSend, pendingReceive, _disposed != 0 || listener._disposed != 0 ? "<unknown>" : InternalRemoteEndPoint.ToString (), listener != null ? listener.LocalEndPointDebug.ToString () : "<unknown>", listener != null && listener._disposed == 0 ? server.EthernetAdapterToBindTo.ToString () : "<unknown>"));
+// ReSharper disable PossibleNullReferenceException
+			Debug.WriteLine (String.Format ("Server ({5}, {6}): Close for client index: {0} [endpoint = {4}, waitingClose = {1}, pendingSend = {2}, pendingReceive = {3}]", ClientIndex, WaitingClose, PendingSend, PendingReceive, _disposed != 0 || listener._disposed != 0 ? "<unknown>" : InternalRemoteEndPoint.ToString (), listener != null ? listener.LocalEndPointDebug.ToString () : "<unknown>", listener != null && listener._disposed == 0 ? server.EthernetAdapterToBindTo.ToString () : "<unknown>"));
+// ReSharper restore PossibleNullReferenceException
 
-			if (_disposed != 0 || waitingClose)
+			if (_disposed != 0 || WaitingClose)
 				return;
 
 			lock (this)
 				{
-				if (_disposed != 0 || waitingClose)
+				if (_disposed != 0 || WaitingClose)
 					return;
 
-				if (pendingReceive || pendingSend)
+				if (PendingReceive || PendingSend)
 					{
-					waitingClose = true;
+					WaitingClose = true;
 					return;
 					}
 				}
@@ -148,20 +153,22 @@ namespace Crestron.SimplSharp.CrestronSockets
 
 		private void CheckForClose ()
 			{
-			var listener = _listener;
+			var listener = Listener;
 			var server = listener == null ? null : listener.Server;
 
-			Debug.WriteLine (String.Format ("Server ({4}, {5}): CheckForClose for client index: {0} [waitingClose = {1}, pendingSend = {2}, pendingReceive = {3}]", _clientIndex, waitingClose, pendingSend, pendingReceive, listener.LocalEndPointDebug, server.EthernetAdapterToBindTo));
+// ReSharper disable PossibleNullReferenceException
+			Debug.WriteLine (String.Format ("Server ({4}, {5}): CheckForClose for client index: {0} [waitingClose = {1}, pendingSend = {2}, pendingReceive = {3}]", ClientIndex, WaitingClose, PendingSend, PendingReceive, listener.LocalEndPointDebug, server.EthernetAdapterToBindTo));
+// ReSharper restore PossibleNullReferenceException
 
-			if (!waitingClose || pendingSend || pendingReceive)
+			if (!WaitingClose || PendingSend || PendingReceive)
 				return;
 
 			lock (this)
 				{
-				if (!waitingClose || pendingSend || pendingReceive)
+				if (!WaitingClose || PendingSend || PendingReceive)
 					return;
 
-				waitingClose = false;
+				WaitingClose = false;
 				}
 
 			listener.CloseServerSocket (this);
@@ -172,7 +179,7 @@ namespace Crestron.SimplSharp.CrestronSockets
 			{
 			get
 				{
-				var listener = _listener;
+				var listener = Listener;
 				var server = listener == null ? null : listener.Server;
 
 				CheckDisposed ();
@@ -180,12 +187,16 @@ namespace Crestron.SimplSharp.CrestronSockets
 				if (_remoteEndpoint != null)
 					return _remoteEndpoint;
 
+// ReSharper disable PossibleNullReferenceException
 				lock (listener.SyncLock)
+// ReSharper restore PossibleNullReferenceException
 					{
-					if (_disposed != 0 || listener._disposed != 0 || server.GetServerSocketStatusForSpecificClient (_clientIndex) == SocketStatus.SOCKET_STATUS_SOCKET_NOT_EXIST)
+// ReSharper disable PossibleNullReferenceException
+					if (_disposed != 0 || listener._disposed != 0 || server.GetServerSocketStatusForSpecificClient (ClientIndex) == SocketStatus.SOCKET_STATUS_SOCKET_NOT_EXIST)
+// ReSharper restore PossibleNullReferenceException
 						throw new ObjectDisposedException (GetType ().FullName);
 
-					return _remoteEndpoint = new IPEndPoint (IPAddress.Parse (server.GetAddressServerAcceptedConnectionFromForSpecificClient (_clientIndex)), server.GetPortNumberServerAcceptedConnectionFromForSpecificClient (_clientIndex));
+					return _remoteEndpoint = new IPEndPoint (IPAddress.Parse (server.GetAddressServerAcceptedConnectionFromForSpecificClient (ClientIndex)), server.GetPortNumberServerAcceptedConnectionFromForSpecificClient (ClientIndex));
 					}
 				}
 			}
@@ -194,7 +205,7 @@ namespace Crestron.SimplSharp.CrestronSockets
 			{
 			get
 				{
-				var listener = _listener;
+				var listener = Listener;
 				var server = listener == null ? null : listener.Server;
 
 				if (_remoteEndpoint != null)
@@ -205,10 +216,10 @@ namespace Crestron.SimplSharp.CrestronSockets
 
 				lock (listener.SyncLock)
 					{
-					if (_disposed != 0 || listener._disposed != 0 || server == null || server.GetServerSocketStatusForSpecificClient (_clientIndex) == SocketStatus.SOCKET_STATUS_SOCKET_NOT_EXIST)
+					if (_disposed != 0 || listener._disposed != 0 || server == null || server.GetServerSocketStatusForSpecificClient (ClientIndex) == SocketStatus.SOCKET_STATUS_SOCKET_NOT_EXIST)
 						return new IPEndPoint (IPAddress.Any, 0);
 
-					return _remoteEndpoint = new IPEndPoint (IPAddress.Parse (listener.Server.GetAddressServerAcceptedConnectionFromForSpecificClient (_clientIndex)), server.GetPortNumberServerAcceptedConnectionFromForSpecificClient (_clientIndex));
+					return _remoteEndpoint = new IPEndPoint (IPAddress.Parse (listener.Server.GetAddressServerAcceptedConnectionFromForSpecificClient (ClientIndex)), server.GetPortNumberServerAcceptedConnectionFromForSpecificClient (ClientIndex));
 					}
 				}
 			}
@@ -218,7 +229,7 @@ namespace Crestron.SimplSharp.CrestronSockets
 			{
 			get
 				{
-				var listener = _listener;
+				var listener = Listener;
 				var server = listener == null ? null : listener.Server;
 
 				if (_localEndpoint != null)
@@ -226,15 +237,19 @@ namespace Crestron.SimplSharp.CrestronSockets
 
 				CheckDisposed ();
 
+// ReSharper disable PossibleNullReferenceException
 				lock (listener.SyncLock)
+// ReSharper restore PossibleNullReferenceException
 					{
 					if (_disposed != 0 || listener._disposed != 0)
 						throw new ObjectDisposedException (GetType ().FullName);
 
-					if (server.GetServerSocketStatusForSpecificClient (_clientIndex) == SocketStatus.SOCKET_STATUS_SOCKET_NOT_EXIST)
+// ReSharper disable PossibleNullReferenceException
+					if (server.GetServerSocketStatusForSpecificClient (ClientIndex) == SocketStatus.SOCKET_STATUS_SOCKET_NOT_EXIST)
+// ReSharper restore PossibleNullReferenceException
 						throw new ObjectDisposedException (GetType ().FullName);
 
-					var localAddress = server.GetLocalAddressServerAcceptedConnectionFromForSpecificClient (_clientIndex);
+					var localAddress = server.GetLocalAddressServerAcceptedConnectionFromForSpecificClient (ClientIndex);
 					if (localAddress == String.Empty)
 						localAddress = CrestronEthernetHelper.GetEthernetParameter (CrestronEthernetHelper.ETHERNET_PARAMETER_TO_GET.GET_CURRENT_IP_ADDRESS, 0);
 
@@ -247,7 +262,7 @@ namespace Crestron.SimplSharp.CrestronSockets
 			{
 			get
 				{
-				var listener = _listener;
+				var listener = Listener;
 
 				CheckDisposed ();
 
@@ -255,7 +270,7 @@ namespace Crestron.SimplSharp.CrestronSockets
 				}
 			set
 				{
-				var listener = _listener;
+				var listener = Listener;
 
 				CheckDisposed ();
 
@@ -282,10 +297,10 @@ namespace Crestron.SimplSharp.CrestronSockets
 
 		public override int Send (byte[] buffer, int offset, int size, SocketFlags socketFlags)
 			{
-			var listener = _listener;
+			var listener = Listener;
 			var server = listener == null ? null : listener.Server;
 
-			Debug.WriteLine (String.Format ("Server ({3}, {4}): Send [offset = {2}, size = {1}] for clientId: {0}", _clientIndex, size, offset, listener == null ? "<unlnown>" : listener.LocalEndPointDebug.ToString (), server == null ? "<unknown>" : server.EthernetAdapterToBindTo.ToString ()));
+			Debug.WriteLine (String.Format ("Server ({3}, {4}): Send [offset = {2}, size = {1}] for clientId: {0}", ClientIndex, size, offset, listener == null ? "<unlnown>" : listener.LocalEndPointDebug.ToString (), server == null ? "<unknown>" : server.EthernetAdapterToBindTo.ToString ()));
 
 			CheckDisposed ();
 
@@ -304,9 +319,11 @@ namespace Crestron.SimplSharp.CrestronSockets
 			if (size == 0)
 				return 0;
 
+// ReSharper disable PossibleNullReferenceException
 			server.SocketSendOrReceiveTimeOutInMs = SendTimeout;
+// ReSharper restore PossibleNullReferenceException
 
-			SocketErrorCodes result = server.SendData (_clientIndex, buffer, offset, size);
+			SocketErrorCodes result = server.SendData (ClientIndex, buffer, offset, size);
 
 			server.SocketSendOrReceiveTimeOutInMs = 0;
 
@@ -318,19 +335,19 @@ namespace Crestron.SimplSharp.CrestronSockets
 			return size;
 			}
 
-		public override int SendTo (byte[] buffer, int offset, int size, SocketFlags socketFlags, IPEndPoint remoteEP)
+		public override int SendTo (byte[] buffer, int offset, int size, SocketFlags socketFlags, IPEndPoint remoteEp)
 			{
 			return Send (buffer, offset, size, socketFlags);
 			}
 
 		public override int Receive (byte[] buffer, int offset, int size, SocketFlags socketFlags)
 			{
-			var listener = _listener;
+			var listener = Listener;
 			var server = listener == null ? null : listener.Server;
 
-			Debug.WriteLine (string.Format ("Server ({3}, {4}): Receive [offset = {2}, size = {1}] for client: {0}", _clientIndex, size, offset, listener == null ? "<unlnown>" : listener.LocalEndPointDebug.ToString (), server == null ? "<unknown>" : server.EthernetAdapterToBindTo.ToString ()));
+			Debug.WriteLine (string.Format ("Server ({3}, {4}): Receive [offset = {2}, size = {1}] for client: {0}", ClientIndex, size, offset, listener == null ? "<unlnown>" : listener.LocalEndPointDebug.ToString (), server == null ? "<unknown>" : server.EthernetAdapterToBindTo.ToString ()));
 
-			if (dataBuffer.Count == 0)
+			if (_dataBuffer.Count == 0)
 				CheckDisposed ();
 
 			if (_shutdown.HasValue && (_shutdown == SocketShutdown.Receive || _shutdown == SocketShutdown.Both))
@@ -348,13 +365,19 @@ namespace Crestron.SimplSharp.CrestronSockets
 			if (size == 0)
 				return 0;
 
-			if (dataBuffer.Count == 0)
+			if (_dataBuffer.Count == 0)
 				{
+// ReSharper disable PossibleNullReferenceException
 				lock (listener.SyncLock)
+// ReSharper restore PossibleNullReferenceException
 					{
-					if (finishing || server.GetServerSocketStatusForSpecificClient (_clientIndex) == SocketStatus.SOCKET_STATUS_NO_CONNECT)
+// ReSharper disable PossibleNullReferenceException
+					if (_finishing || server.GetServerSocketStatusForSpecificClient (ClientIndex) == SocketStatus.SOCKET_STATUS_NO_CONNECT)
+// ReSharper restore PossibleNullReferenceException
 						{
-						Debug.WriteLine (String.Format ("Server ({1}, {2}): Receive data [0] for client {0}", _clientIndex, listener.LocalEndPointDebug, server.EthernetAdapterToBindTo));
+// ReSharper disable PossibleNullReferenceException
+						Debug.WriteLine (String.Format ("Server ({1}, {2}): Receive data [0] for client {0}", ClientIndex, listener.LocalEndPointDebug, server.EthernetAdapterToBindTo));
+// ReSharper restore PossibleNullReferenceException
 
 						((IDisposable)this).Dispose ();
 
@@ -366,14 +389,14 @@ namespace Crestron.SimplSharp.CrestronSockets
 
 				server.SocketSendOrReceiveTimeOutInMs = ReceiveTimeout;
 
-				int length = server.ReceiveData (_clientIndex);
-				Debug.WriteLine (String.Format ("Server ({2}, {3}): Receive data [{0}] for client {1}", length, _clientIndex, listener.LocalEndPointDebug, server.EthernetAdapterToBindTo));
+				int length = server.ReceiveData (ClientIndex);
+				Debug.WriteLine (String.Format ("Server ({2}, {3}): Receive data [{0}] for client {1}", length, ClientIndex, listener.LocalEndPointDebug, server.EthernetAdapterToBindTo));
 
 				server.SocketSendOrReceiveTimeOutInMs = 0;
 
 				if (length == 0)
 					{
-					Debug.WriteLine (String.Format ("Server ({1}, {2}): Receive data [0] for client {0}", _clientIndex, listener.LocalEndPointDebug, server.EthernetAdapterToBindTo));
+					Debug.WriteLine (String.Format ("Server ({1}, {2}): Receive data [0] for client {0}", ClientIndex, listener.LocalEndPointDebug, server.EthernetAdapterToBindTo));
 
 					((IDisposable)this).Dispose ();
 
@@ -382,17 +405,17 @@ namespace Crestron.SimplSharp.CrestronSockets
 
 				lock (listener.SyncLock)
 					{
-					dataBuffer.AddRange (server.GetIncomingDataBufferForSpecificClient (_clientIndex).Take (length));
+					_dataBuffer.AddRange (server.GetIncomingDataBufferForSpecificClient (ClientIndex).Take (length));
 					}
 				}
 
-			int retLength = dataBuffer.Count <= size ? dataBuffer.Count : size;
+			int retLength = _dataBuffer.Count <= size ? _dataBuffer.Count : size;
 
-			Buffer.BlockCopy (dataBuffer.ToArray (), 0, buffer, offset, retLength);
+			Buffer.BlockCopy (_dataBuffer.ToArray (), 0, buffer, offset, retLength);
 
-			dataBuffer.RemoveRange (0, retLength);
+			_dataBuffer.RemoveRange (0, retLength);
 
-			Debug.WriteLine (String.Format ("Server ({2}, {3}): Returning receive data [{0}] for client {1}", retLength, _clientIndex, listener == null ? "<unlnown>" : listener.LocalEndPointDebug.ToString (), server == null ? "<unknown>" : server.EthernetAdapterToBindTo.ToString ()));
+			Debug.WriteLine (String.Format ("Server ({2}, {3}): Returning receive data [{0}] for client {1}", retLength, ClientIndex, listener == null ? "<unlnown>" : listener.LocalEndPointDebug.ToString (), server == null ? "<unknown>" : server.EthernetAdapterToBindTo.ToString ()));
 
 			return retLength;
 			}
@@ -411,10 +434,10 @@ namespace Crestron.SimplSharp.CrestronSockets
 
 		public override IAsyncResult BeginSend (byte[] buffer, int offset, int size, SocketFlags socketFlags, AsyncCallback callback, Object state)
 			{
-			var listener = _listener;
+			var listener = Listener;
 			var server = listener == null ? null : listener.Server;
 
-			Debug.WriteLine (string.Format ("Server ({1}, {2}): BeginSend for clientId: {0}", _clientIndex, listener == null ? "<unlnown>" : listener.LocalEndPointDebug.ToString (), server == null ? "<unknown>" : server.EthernetAdapterToBindTo.ToString ()));
+			Debug.WriteLine (string.Format ("Server ({1}, {2}): BeginSend for clientId: {0}", ClientIndex, listener == null ? "<unlnown>" : listener.LocalEndPointDebug.ToString (), server == null ? "<unknown>" : server.EthernetAdapterToBindTo.ToString ()));
 
 			CheckDisposed ();
 
@@ -437,24 +460,28 @@ namespace Crestron.SimplSharp.CrestronSockets
 				ssir.CompletedSynchronously = true;
 				((CEvent)ssir.AsyncWaitHandle).Set ();
 				ssir.IsCompleted = true;
-				ssir.errorCode = SocketErrorCodes.SOCKET_OK;
+				ssir.ErrorCode = SocketErrorCodes.SOCKET_OK;
 				if (callback != null)
 					DoAsyncCallback (callback, ssir);
 				}
 			else
 				{
+// ReSharper disable PossibleNullReferenceException
 				lock (listener.SyncLock)
+// ReSharper restore PossibleNullReferenceException
 					{
-					if (_disposed != 0 || listener._disposed != 0 || server.GetServerSocketStatusForSpecificClient (_clientIndex) == SocketStatus.SOCKET_STATUS_SOCKET_NOT_EXIST)
+// ReSharper disable PossibleNullReferenceException
+					if (_disposed != 0 || listener._disposed != 0 || server.GetServerSocketStatusForSpecificClient (ClientIndex) == SocketStatus.SOCKET_STATUS_SOCKET_NOT_EXIST)
+// ReSharper restore PossibleNullReferenceException
 						throw new ObjectDisposedException (GetType ().FullName);
 
-					pendingSend = true;
+					PendingSend = true;
 
-					var result = server.SendDataAsync (_clientIndex, buffer, offset, size, AsyncSendComplete, new AsyncSendState (ssir, callback));
+					var result = server.SendDataAsync (ClientIndex, buffer, offset, size, AsyncSendComplete, new AsyncSendState (ssir, callback));
 
 					if (result != SocketErrorCodes.SOCKET_OK && result != SocketErrorCodes.SOCKET_OPERATION_PENDING)
 						{
-						pendingSend = false;
+						PendingSend = false;
 
 						throw new SocketException (result.ToError ());
 						}
@@ -466,10 +493,10 @@ namespace Crestron.SimplSharp.CrestronSockets
 
 		public override int EndSend (IAsyncResult asyncResult)
 			{
-			var listener = _listener;
+			var listener = Listener;
 			var server = listener == null ? null : listener.Server;
 
-			Debug.WriteLine (string.Format ("Server ({1}, {2}): EndSend for clientId: {0}", _clientIndex, listener == null ? "<unknown>" : listener.LocalEndPointDebug.ToString (), server == null ? "<unknown>" : server.EthernetAdapterToBindTo.ToString ()));
+			Debug.WriteLine (string.Format ("Server ({1}, {2}): EndSend for clientId: {0}", ClientIndex, listener == null ? "<unknown>" : listener.LocalEndPointDebug.ToString (), server == null ? "<unknown>" : server.EthernetAdapterToBindTo.ToString ()));
 
 			CheckDisposed ();
 
@@ -481,29 +508,29 @@ namespace Crestron.SimplSharp.CrestronSockets
 			if (ssir == null)
 				throw new ArgumentException ("asyncResult");
 
-			if (ssir.endsendCalled)
+			if (ssir.EndsendCalled)
 				throw new InvalidOperationException ("EndSend already called");
-			ssir.endsendCalled = true;
+			ssir.EndsendCalled = true;
 
 			if (!ssir.CompletedSynchronously)
 				ssir.AsyncWaitHandle.Wait ();
 
-			if (ssir.errorCode == SocketErrorCodes.SOCKET_NOT_CONNECTED)
+			if (ssir.ErrorCode == SocketErrorCodes.SOCKET_NOT_CONNECTED)
 				{
 				((IDisposable)this).Dispose ();
 				}
 
-			if (ssir.errorCode != SocketErrorCodes.SOCKET_OK)
-				throw new SocketException (ssir.errorCode.ToError ());
+			if (ssir.ErrorCode != SocketErrorCodes.SOCKET_OK)
+				throw new SocketException (ssir.ErrorCode.ToError ());
 
-			return ssir.dataSent;
+			return ssir.DataSent;
 			}
 
 		private void AsyncSendComplete (TCPServer cbServer, uint user, int length, object state)
 			{
 			Debug.WriteLine (string.Format ("Server ({2}, {3}): AsyncSendComplete for clientId: {0} [{1}]", user, length, CrestronListenerSocket.GetLocalEndPointDebug(cbServer), cbServer.EthernetAdapterToBindTo));
 
-			pendingSend = false;
+			PendingSend = false;
 
 			CheckForClose ();
 
@@ -513,17 +540,17 @@ namespace Crestron.SimplSharp.CrestronSockets
 
 			iar.IsCompleted = true;
 			((CEvent)iar.AsyncWaitHandle).Set ();
-			iar.dataSent = length;
+			iar.DataSent = length;
 
 			if (length > 0)
 				{
-				iar.errorCode = SocketErrorCodes.SOCKET_OK;
+				iar.ErrorCode = SocketErrorCodes.SOCKET_OK;
 
 				UpdateSentData (length);
 				}
 			else
 				{
-				iar.errorCode = SocketErrorCodes.SOCKET_NOT_CONNECTED;
+				iar.ErrorCode = SocketErrorCodes.SOCKET_NOT_CONNECTED;
 				iar.Status = SocketStatus.SOCKET_STATUS_BROKEN_REMOTELY;
 				}
 
@@ -551,12 +578,12 @@ namespace Crestron.SimplSharp.CrestronSockets
 
 		public override IAsyncResult BeginReceive (byte[] buffer, int offset, int size, SocketFlags socketFlags, AsyncCallback callback, Object state)
 			{
-			var listener = _listener;
+			var listener = Listener;
 			var server = listener == null ? null : listener.Server;
 
-			Debug.WriteLine (string.Format ("Server ({3}, {4}): BeginReceive [offset = {2}, size = {1}] for clientId: {0}", _clientIndex, size, offset, listener == null ? "<unlnown>" : listener.LocalEndPointDebug.ToString (), server == null ? "<unknown>" : server.EthernetAdapterToBindTo.ToString ()));
+			Debug.WriteLine (string.Format ("Server ({3}, {4}): BeginReceive [offset = {2}, size = {1}] for clientId: {0}", ClientIndex, size, offset, listener == null ? "<unlnown>" : listener.LocalEndPointDebug.ToString (), server == null ? "<unknown>" : server.EthernetAdapterToBindTo.ToString ()));
 
-			if (dataBuffer.Count == 0)
+			if (_dataBuffer.Count == 0)
 				CheckDisposed ();
 
 			if (_shutdown.HasValue && (_shutdown == SocketShutdown.Receive || _shutdown == SocketShutdown.Both))
@@ -578,15 +605,15 @@ namespace Crestron.SimplSharp.CrestronSockets
 				srir.CompletedSynchronously = true;
 				((CEvent)srir.AsyncWaitHandle).Set ();
 				srir.IsCompleted = true;
-				srir.errorCode = SocketErrorCodes.SOCKET_OK;
+				srir.ErrorCode = SocketErrorCodes.SOCKET_OK;
 				if (callback != null)
 					DoAsyncCallback (callback, srir);
 				}
 			else
 				{
-				if (dataBuffer.Count == 0)
+				if (_dataBuffer.Count == 0)
 					{
-					if (finishing)
+					if (_finishing)
 						{
 						srir.CompletedSynchronously = true;
 						srir.IsCompleted = true;
@@ -596,18 +623,22 @@ namespace Crestron.SimplSharp.CrestronSockets
 						}
 					else
 						{
+// ReSharper disable PossibleNullReferenceException
 						lock (listener.SyncLock)
+// ReSharper restore PossibleNullReferenceException
 							{
-							if (_disposed != 0 || listener._disposed != 0 || server.GetServerSocketStatusForSpecificClient (_clientIndex) == SocketStatus.SOCKET_STATUS_SOCKET_NOT_EXIST)
+// ReSharper disable PossibleNullReferenceException
+							if (_disposed != 0 || listener._disposed != 0 || server.GetServerSocketStatusForSpecificClient (ClientIndex) == SocketStatus.SOCKET_STATUS_SOCKET_NOT_EXIST)
+// ReSharper restore PossibleNullReferenceException
 								throw new ObjectDisposedException (GetType ().FullName);
 
-							pendingReceive = true;
+							PendingReceive = true;
 
-							var result = server.ReceiveDataAsync (_clientIndex, AsyncReceiveComplete, new AsyncReceiveState (srir, callback, buffer, offset, size));
+							var result = server.ReceiveDataAsync (ClientIndex, AsyncReceiveComplete, new AsyncReceiveState (srir, callback, buffer, offset, size));
 
 							if (result != SocketErrorCodes.SOCKET_OK && result != SocketErrorCodes.SOCKET_OPERATION_PENDING)
 								{
-								pendingReceive = false;
+								PendingReceive = false;
 
 								throw new SocketException (result.ToError ());
 								}
@@ -616,15 +647,15 @@ namespace Crestron.SimplSharp.CrestronSockets
 					}
 				else
 					{
-					int retLength = dataBuffer.Count <= size ? dataBuffer.Count : size;
+					int retLength = _dataBuffer.Count <= size ? _dataBuffer.Count : size;
 
-					Debug.WriteLine (string.Format ("Server ({2}, {3}): SyncReceiveComplete for clientId: {0} [{1}]", _clientIndex, retLength, listener == null ? "<unlnown>" : listener.LocalEndPointDebug.ToString (), server == null ? "<unknown>" : server.EthernetAdapterToBindTo.ToString ()));
+					Debug.WriteLine (string.Format ("Server ({2}, {3}): SyncReceiveComplete for clientId: {0} [{1}]", ClientIndex, retLength, listener == null ? "<unlnown>" : listener.LocalEndPointDebug.ToString (), server == null ? "<unknown>" : server.EthernetAdapterToBindTo.ToString ()));
 
-					Buffer.BlockCopy (dataBuffer.ToArray (), 0, buffer, offset, retLength);
+					Buffer.BlockCopy (_dataBuffer.ToArray (), 0, buffer, offset, retLength);
 
-					dataBuffer.RemoveRange (0, retLength);
+					_dataBuffer.RemoveRange (0, retLength);
 
-					srir.dataReceived = retLength;
+					srir.DataReceived = retLength;
 
 					srir.CompletedSynchronously = true;
 					srir.IsCompleted = true;
@@ -641,7 +672,7 @@ namespace Crestron.SimplSharp.CrestronSockets
 			{
 			Debug.WriteLine (string.Format ("Server ({2}, {3}): AsyncReceiveComplete for clientId: {0} [{1}]", user, length, CrestronListenerSocket.GetLocalEndPointDebug (cbServer), cbServer.EthernetAdapterToBindTo));
 
-			pendingReceive = false;
+			PendingReceive = false;
 
 			CheckForClose ();
 
@@ -654,30 +685,30 @@ namespace Crestron.SimplSharp.CrestronSockets
 
 			iar.IsCompleted = true;
 			((CEvent)iar.AsyncWaitHandle).Set ();
-			iar.dataReceived = length;
+			iar.DataReceived = length;
 
 			if (length > 0)
 				{
-				iar.errorCode = SocketErrorCodes.SOCKET_OK;
+				iar.ErrorCode = SocketErrorCodes.SOCKET_OK;
 
 				lock (cbServer)
 					{
-					dataBuffer.AddRange (cbServer.GetIncomingDataBufferForSpecificClient (user).Take (length));
+					_dataBuffer.AddRange (cbServer.GetIncomingDataBufferForSpecificClient (user).Take (length));
 					}
 
-				int retLength = dataBuffer.Count <= reqLength ? dataBuffer.Count : reqLength;
+				int retLength = _dataBuffer.Count <= reqLength ? _dataBuffer.Count : reqLength;
 
-				Buffer.BlockCopy (dataBuffer.ToArray (), 0, buff, offset, retLength);
+				Buffer.BlockCopy (_dataBuffer.ToArray (), 0, buff, offset, retLength);
 
-				dataBuffer.RemoveRange (0, retLength);
+				_dataBuffer.RemoveRange (0, retLength);
 
-				iar.dataReceived = retLength;
+				iar.DataReceived = retLength;
 				}
 			else
 				{
-				iar.errorCode = SocketErrorCodes.SOCKET_NOT_CONNECTED;
+				iar.ErrorCode = SocketErrorCodes.SOCKET_NOT_CONNECTED;
 				iar.Status = SocketStatus.SOCKET_STATUS_BROKEN_REMOTELY;
-				finishing = true;
+				_finishing = true;
 				}
 
 			if (cb != null)
@@ -686,10 +717,10 @@ namespace Crestron.SimplSharp.CrestronSockets
 
 		public override int EndReceive (IAsyncResult asyncResult)
 			{
-			var listener = _listener;
+			var listener = Listener;
 			var server = listener == null ? null : listener.Server;
 
-			Debug.Write (string.Format ("Server ({1}, {2}): EndReceive for clientId: {0}", _clientIndex, listener == null ? "<unlnown>" : listener.LocalEndPointDebug.ToString (), server == null ? "<unknown>" : server.EthernetAdapterToBindTo.ToString ()));
+			Debug.Write (string.Format ("Server ({1}, {2}): EndReceive for clientId: {0}", ClientIndex, listener == null ? "<unlnown>" : listener.LocalEndPointDebug.ToString (), server == null ? "<unknown>" : server.EthernetAdapterToBindTo.ToString ()));
 
 			bool inhibitWriteLine = false;
 
@@ -705,21 +736,21 @@ namespace Crestron.SimplSharp.CrestronSockets
 				if (srir == null)
 					throw new ArgumentException ("asyncResult");
 
-				if (srir.endreceiveCalled)
+				if (srir.EndreceiveCalled)
 					throw new InvalidOperationException ("EndReceive already called");
-				srir.endreceiveCalled = true;
+				srir.EndreceiveCalled = true;
 
 				if (!srir.CompletedSynchronously)
 					srir.AsyncWaitHandle.Wait ();
 
-				if (srir.dataReceived != 0)
+				if (srir.DataReceived != 0)
 					{
-					Debug.Write (String.Format (" returns {0}", srir.dataReceived));
+					Debug.Write (String.Format (" returns {0}", srir.DataReceived));
 
-					return srir.dataReceived;
+					return srir.DataReceived;
 					}
 
-				if (finishing || srir.errorCode == SocketErrorCodes.SOCKET_NOT_CONNECTED)
+				if (_finishing || srir.ErrorCode == SocketErrorCodes.SOCKET_NOT_CONNECTED)
 					{
 					Debug.WriteLine (" return 0");
 
@@ -730,8 +761,8 @@ namespace Crestron.SimplSharp.CrestronSockets
 					return 0;
 					}
 
-				if (srir.errorCode != SocketErrorCodes.SOCKET_OK)
-					throw new SocketException (srir.errorCode.ToError ());
+				if (srir.ErrorCode != SocketErrorCodes.SOCKET_OK)
+					throw new SocketException (srir.ErrorCode.ToError ());
 
 				Debug.Write (" return 0");
 
@@ -745,24 +776,24 @@ namespace Crestron.SimplSharp.CrestronSockets
 
 		protected override void Dispose (bool disposing)
 			{
-			var listener = _listener;
+			var listener = Listener;
 			var server = listener == null ? null : listener.Server;
 
-			Debug.WriteLine (String.Format ("Server ({3}, {4}): ServerSocket Dispose for clientId: {0} ({1}) [_disposed = {2}]", _clientIndex, disposing, _disposed, listener == null ? "<unknown>" : listener.LocalEndPointDebug.ToString (), server == null ? "<unknown>" : server.EthernetAdapterToBindTo.ToString ()));
+			Debug.WriteLine (String.Format ("Server ({3}, {4}): ServerSocket Dispose for clientId: {0} ({1}) [_disposed = {2}]", ClientIndex, disposing, _disposed, listener == null ? "<unknown>" : listener.LocalEndPointDebug.ToString (), server == null ? "<unknown>" : server.EthernetAdapterToBindTo.ToString ()));
 
 			if (disposing && _disposed == 0)
 				{
 				if (listener != null)
 					{
 					listener.CloseServerSocket (this);
-					_listener = null;
+					Listener = null;
 					}
 				}
 
 			if (Interlocked.CompareExchange (ref _disposed, 1, 0) != 0)
 				return;
 
-			finishing = false;
+			_finishing = false;
 
 			_active = false;
 			}
@@ -773,18 +804,18 @@ namespace Crestron.SimplSharp.CrestronSockets
 		private TCPServer _server;
 		private bool _closing;
 		private readonly object _syncLock = new object ();
-		private readonly CrestronQueue<uint> queueConnections = new CrestronQueue<uint> (1);
+		private readonly CrestronQueue<uint> _queueConnections = new CrestronQueue<uint> (1);
 		//private bool _acceptCalled;
 
-		private readonly Dictionary<uint, CrestronServerSocket> dictServerSockets = new Dictionary<uint, CrestronServerSocket> ();
+		private readonly Dictionary<uint, CrestronServerSocket> _dictServerSockets = new Dictionary<uint, CrestronServerSocket> ();
 
 		public CrestronListenerSocket (TCPServer server)
 			{
-			this._server = server;
+			_server = server;
 
 			Debug.WriteLine ("Listener socket created for TCPServer listening at {0}, {1}", LocalEndPointDebug, server.EthernetAdapterToBindTo);
 
-			this._server.SocketStatusChange += server_SocketStatusChange;
+			_server.SocketStatusChange += server_SocketStatusChange;
 			}
 
 
@@ -899,13 +930,13 @@ namespace Crestron.SimplSharp.CrestronSockets
 			{
 			get
 				{
-				return _server != null ? new IPEndPoint (IPAddress.Parse (_server.AddressToAcceptConnectionFrom), _server.PortNumber) : new IPEndPoint (IPAddress.None, 0);
+				return _server != null && _server.AddressToAcceptConnectionFrom != null ? new IPEndPoint (IPAddress.Parse (_server.AddressToAcceptConnectionFrom), _server.PortNumber) : new IPEndPoint (IPAddress.None, 0);
 				}
 			}
 
 		internal static IPEndPoint GetLocalEndPointDebug (TCPServer s)
 			{
-			return s != null ? new IPEndPoint (IPAddress.Parse (s.AddressToAcceptConnectionFrom), s.PortNumber) : new IPEndPoint (IPAddress.None, 0);
+			return s != null && s.AddressToAcceptConnectionFrom != null ? new IPEndPoint (IPAddress.Parse (s.AddressToAcceptConnectionFrom), s.PortNumber) : new IPEndPoint (IPAddress.None, 0);
 			}
 
 		public override void Close ()
@@ -931,26 +962,28 @@ namespace Crestron.SimplSharp.CrestronSockets
 				//_acceptCalled = false;
 
 				uint cix;
-				while (queueConnections.TryToDequeue (out cix) && cix != 0 && cix != UInt32.MaxValue)
+				while (_queueConnections.TryToDequeue (out cix) && cix != 0 && cix != UInt32.MaxValue)
 					try
 						{
 						_server.Disconnect (cix);
 						}
+// ReSharper disable EmptyGeneralCatchClause
 					catch
+// ReSharper restore EmptyGeneralCatchClause
 						{
 						}
 
-				queueConnections.Enqueue (UInt32.MaxValue);
+				_queueConnections.Enqueue (UInt32.MaxValue);
 
 				KeyValuePair<uint, CrestronServerSocket>[] dictServerEntries;
-				lock (dictServerSockets)
+				lock (_dictServerSockets)
 					{
-					dictServerEntries = dictServerSockets.ToArray ();
+					dictServerEntries = _dictServerSockets.ToArray ();
 					}
 
 				foreach (var kvp in dictServerEntries)
 					{
-					Debug.WriteLine (String.Format ("     Server ({6}, {7}): Closing client index: {0} [endpoint = {4}, waitingClose = {1}, pendingSend = {2}, pendingReceive = {3}, disposed = {5}]", kvp.Key, kvp.Value.waitingClose, kvp.Value.pendingSend, kvp.Value.pendingReceive, kvp.Value.Disposed ? "<unknown>" : kvp.Value.InternalRemoteEndPoint.ToString (), kvp.Value.Disposed, LocalEndPointDebug, _server.EthernetAdapterToBindTo));
+					Debug.WriteLine (String.Format ("     Server ({6}, {7}): Closing client index: {0} [endpoint = {4}, waitingClose = {1}, pendingSend = {2}, pendingReceive = {3}, disposed = {5}]", kvp.Key, kvp.Value.WaitingClose, kvp.Value.PendingSend, kvp.Value.PendingReceive, kvp.Value.Disposed ? "<unknown>" : kvp.Value.InternalRemoteEndPoint.ToString (), kvp.Value.Disposed, LocalEndPointDebug, _server.EthernetAdapterToBindTo));
 
 					kvp.Value.Close ();
 					}
@@ -1036,9 +1069,9 @@ namespace Crestron.SimplSharp.CrestronSockets
 			Start (backlog);
 			}
 
-		public override void Bind (IPEndPoint localEP)
+		public override void Bind (IPEndPoint localEp)
 			{
-			_server.PortNumber = localEP.Port;
+			_server.PortNumber = localEp.Port;
 			}
 
 		private void DoConnection (TCPServer s, uint index, object state)
@@ -1046,9 +1079,9 @@ namespace Crestron.SimplSharp.CrestronSockets
 			if (index == 0)
 				return;
 
-			if (_backlog != 0 && queueConnections.Count >= _backlog)
+			if (_backlog != 0 && _queueConnections.Count >= _backlog)
 				{
-				Debug.WriteLine ("     Server ({0}, {3}): Backlog exceeded - disconnecting {1}:{2}", GetLocalEndPointDebug (s), index == 0 ? "<unknown>" : s.GetAddressServerAcceptedConnectionFromForSpecificClient (index), index == 0 ? "<unlnown>" : s.GetPortNumberServerAcceptedConnectionFromForSpecificClient (index).ToString (), s.EthernetAdapterToBindTo);
+				Debug.WriteLine ("     Server ({0}, {3}): Backlog exceeded - disconnecting {1}:{2}", GetLocalEndPointDebug (s), index == 0 ? "<unknown>" : s.GetAddressServerAcceptedConnectionFromForSpecificClient (index), index == 0 ? "<unlnown>" : s.GetPortNumberServerAcceptedConnectionFromForSpecificClient (index).ToString (CultureInfo.InvariantCulture), s.EthernetAdapterToBindTo);
 
 				lock (_syncLock)
 					{
@@ -1057,9 +1090,9 @@ namespace Crestron.SimplSharp.CrestronSockets
 				}
 			else
 				{
-				Debug.WriteLine ("     Server ({0}, {4}): Queuing clientIndex {3} [{1}:{2}]", GetLocalEndPointDebug (s), index == 0 ? "<unknown>" : s.GetAddressServerAcceptedConnectionFromForSpecificClient (index), index == 0 ? "<unknown>" : s.GetPortNumberServerAcceptedConnectionFromForSpecificClient (index).ToString (), index, s.EthernetAdapterToBindTo);
+				Debug.WriteLine ("     Server ({0}, {4}): Queuing clientIndex {3} [{1}:{2}]", GetLocalEndPointDebug (s), index == 0 ? "<unknown>" : s.GetAddressServerAcceptedConnectionFromForSpecificClient (index), index == 0 ? "<unknown>" : s.GetPortNumberServerAcceptedConnectionFromForSpecificClient (index).ToString (CultureInfo.InvariantCulture), index, s.EthernetAdapterToBindTo);
 
-				queueConnections.Enqueue (index);
+				_queueConnections.Enqueue (index);
 				}
 
 			if (!_closing && _disposed == 0)
@@ -1080,12 +1113,12 @@ namespace Crestron.SimplSharp.CrestronSockets
 			if (!_active)
 				throw new InvalidOperationException ("start not called");
 
-			return !queueConnections.IsEmpty;
+			return !_queueConnections.IsEmpty;
 			}
 
 		public void Stop ()
 			{
-			Debug.WriteLine (String.Format ("Listener socket stopped [address = {2}, port = {3}, adapter = {4}, count = {4}, disposed = {0}, closing = {1}]", _disposed, _closing, _server.AddressToAcceptConnectionFrom, _server.PortNumber, dictServerSockets.Count, _server.EthernetAdapterToBindTo));
+			Debug.WriteLine (String.Format ("Listener socket stopped [address = {2}, port = {3}, adapter = {4}, count = {4}, disposed = {0}, closing = {1}]", _disposed, _closing, _server.AddressToAcceptConnectionFrom, _server.PortNumber, _dictServerSockets.Count, _server.EthernetAdapterToBindTo));
 
 			if (_disposed != 0 || _closing)
 				throw new ObjectDisposedException (GetType ().FullName);
@@ -1097,28 +1130,30 @@ namespace Crestron.SimplSharp.CrestronSockets
 			//_acceptCalled = false;
 
 			uint cix;
-			while (queueConnections.TryToDequeue(out cix) && cix != 0 && cix != UInt32.MaxValue)
+			while (_queueConnections.TryToDequeue(out cix) && cix != 0 && cix != UInt32.MaxValue)
 				try
 					{
 					_server.Disconnect (cix);
 					}
+// ReSharper disable EmptyGeneralCatchClause
 				catch
+// ReSharper restore EmptyGeneralCatchClause
 					{
 					}
 
-			queueConnections.Enqueue (UInt32.MaxValue);
+			_queueConnections.Enqueue (UInt32.MaxValue);
 			}
 
 		private void CheckForInactiveListener ()
 			{
-			Debug.WriteLine (String.Format ("     Server ({4}, {5}): CheckforInactiveListener [count = {0}, queued = {3} disposed = {1}, closing = {2}]", dictServerSockets.Count, _disposed, _closing, queueConnections.Count, LocalEndPointDebug, _server.EthernetAdapterToBindTo));
+			Debug.WriteLine (String.Format ("     Server ({4}, {5}): CheckforInactiveListener [count = {0}, queued = {3} disposed = {1}, closing = {2}]", _dictServerSockets.Count, _disposed, _closing, _queueConnections.Count, LocalEndPointDebug, _server.EthernetAdapterToBindTo));
 
-			if (_disposed != 0 || !_closing || dictServerSockets.Count != 0 || !queueConnections.IsEmpty)
+			if (_disposed != 0 || !_closing || _dictServerSockets.Count != 0 || (!_queueConnections.IsEmpty && _queueConnections.Peek () != UInt32.MaxValue))
 				return;
 
 			lock (_syncLock)
 				{
-				if (_disposed != 0 || !_closing || dictServerSockets.Count != 0 || !queueConnections.IsEmpty)
+				if (_disposed != 0 || !_closing || _dictServerSockets.Count != 0 || (!_queueConnections.IsEmpty && _queueConnections.Peek () != UInt32.MaxValue))
 					return;
 
 				try
@@ -1130,7 +1165,9 @@ namespace Crestron.SimplSharp.CrestronSockets
 
 					_server.DisconnectAll ();
 					}
+// ReSharper disable EmptyGeneralCatchClause
 				catch (Exception)
+// ReSharper restore EmptyGeneralCatchClause
 					{
 					}
 
@@ -1140,7 +1177,7 @@ namespace Crestron.SimplSharp.CrestronSockets
 
 		internal void CloseServerSocket (CrestronServerSocket serverSocket)
 			{
-			Debug.WriteLine (string.Format ("Server ({7}, {8}): ServerSocket closed for client index: {0} [endpoint = {6}, waitingClose = {1}, pendingSend = {2}, pendingReceive = {3}, disposed = {4}, closing = {5}]", serverSocket._clientIndex, serverSocket.waitingClose, serverSocket.pendingSend, serverSocket.pendingReceive, _disposed, _closing, serverSocket.Disposed || _disposed != 0 || _server.GetServerSocketStatusForSpecificClient (serverSocket._clientIndex) == SocketStatus.SOCKET_STATUS_SOCKET_NOT_EXIST ? "<unknown>" : serverSocket.InternalRemoteEndPoint.ToString (), LocalEndPointDebug, _server.EthernetAdapterToBindTo));
+			Debug.WriteLine (string.Format ("Server ({7}, {8}): ServerSocket closed for client index: {0} [endpoint = {6}, waitingClose = {1}, pendingSend = {2}, pendingReceive = {3}, disposed = {4}, closing = {5}]", serverSocket.ClientIndex, serverSocket.WaitingClose, serverSocket.PendingSend, serverSocket.PendingReceive, _disposed, _closing, serverSocket.Disposed || _disposed != 0 || _server.GetServerSocketStatusForSpecificClient (serverSocket.ClientIndex) == SocketStatus.SOCKET_STATUS_SOCKET_NOT_EXIST ? "<unknown>" : serverSocket.InternalRemoteEndPoint.ToString (), LocalEndPointDebug, _server.EthernetAdapterToBindTo));
 
 			try
 				{
@@ -1154,38 +1191,40 @@ namespace Crestron.SimplSharp.CrestronSockets
 
 					serverSocket.Disposed = true;
 
-					if (_server.GetServerSocketStatusForSpecificClient (serverSocket._clientIndex) != SocketStatus.SOCKET_STATUS_CONNECTED)
+					if (_server.GetServerSocketStatusForSpecificClient (serverSocket.ClientIndex) != SocketStatus.SOCKET_STATUS_CONNECTED)
 						{
-						Debug.WriteLine (String.Format ("     TCPServer.GetServerSocketStatusForSpecificClient ({0}, {2}) = {1}", serverSocket._clientIndex, _server.GetServerSocketStatusForSpecificClient (serverSocket._clientIndex), _server.EthernetAdapterToBindTo));
+						Debug.WriteLine (String.Format ("     TCPServer.GetServerSocketStatusForSpecificClient ({0}, {2}) = {1}", serverSocket.ClientIndex, _server.GetServerSocketStatusForSpecificClient (serverSocket.ClientIndex), _server.EthernetAdapterToBindTo));
 
 						//return;
 						}
 
 					try
 						{
-						Debug.WriteLine (string.Format ("     TCPServer.Disconnect ({0})", serverSocket._clientIndex));
+						Debug.WriteLine (string.Format ("     TCPServer.Disconnect ({0})", serverSocket.ClientIndex));
 
-						_server.Disconnect (serverSocket._clientIndex);
+						_server.Disconnect (serverSocket.ClientIndex);
 						}
-					catch (Exception)
+// ReSharper disable EmptyGeneralCatchClause
+					catch
+// ReSharper restore EmptyGeneralCatchClause
 						{
 						}
 					}
 				}
 			finally
 				{
-				if (!serverSocket.waitingClose)
+				if (!serverSocket.WaitingClose)
 					RemoveServerSocket (serverSocket);
 				}
 			}
 
 		internal void RemoveServerSocket (CrestronServerSocket serverSocket)
 			{
-			Debug.WriteLine (String.Format ("     Server ({1}, {2}): RemoveServerSocket (clientIndex = {0})", serverSocket._clientIndex, LocalEndPointDebug, _server.EthernetAdapterToBindTo));
+			Debug.WriteLine (String.Format ("     Server ({1}, {2}): RemoveServerSocket (clientIndex = {0})", serverSocket.ClientIndex, LocalEndPointDebug, _server.EthernetAdapterToBindTo));
 
-			lock (dictServerSockets)
+			lock (_dictServerSockets)
 				{
-				dictServerSockets.Remove (serverSocket._clientIndex);
+				_dictServerSockets.Remove (serverSocket.ClientIndex);
 				}
 
 			CheckForInactiveListener ();
@@ -1230,7 +1269,7 @@ namespace Crestron.SimplSharp.CrestronSockets
 				Debug.WriteLine ("     Server ({0}:{1}, {2}) : Waiting for queue", server.AddressToAcceptConnectionFrom, server.PortNumber, server.EthernetAdapterToBindTo);
 				try
 					{
-					newClientIndex = queueConnections.Dequeue ();
+					newClientIndex = _queueConnections.Dequeue ();
 
 					Debug.WriteLine ("     Server ({0}:{1}, {2}) : Got queue [clientIndex = {2}]", server.AddressToAcceptConnectionFrom, server.PortNumber, newClientIndex, server.EthernetAdapterToBindTo);
 					}
@@ -1263,15 +1302,15 @@ namespace Crestron.SimplSharp.CrestronSockets
 
 			var ss = new CrestronServerSocket (this, newClientIndex);
 
-			lock (dictServerSockets)
+			lock (_dictServerSockets)
 				{
 				CrestronServerSocket oldSocket;
-				if (dictServerSockets.TryGetValue (newClientIndex, out oldSocket))
+				if (_dictServerSockets.TryGetValue (newClientIndex, out oldSocket))
 					{
-					oldSocket._listener = null;
-					dictServerSockets.Remove (newClientIndex);
+					oldSocket.Listener = null;
+					_dictServerSockets.Remove (newClientIndex);
 					}
-				dictServerSockets.Add (newClientIndex, ss);
+				_dictServerSockets.Add (newClientIndex, ss);
 				}
 
 			return ss;
@@ -1325,11 +1364,11 @@ namespace Crestron.SimplSharp.CrestronSockets
 					//_acceptCalled = true;
 
 					uint newClientId;
-					if (queueConnections.TryToDequeue (out newClientId))
+					if (_queueConnections.TryToDequeue (out newClientId))
 						{
 						Debug.WriteLine (String.Format ("     Server ({0}:{1}, {5}): Dequeuing [index = {2}, remoteEndpoint = {3}:{4}]", _server.AddressToAcceptConnectionFrom,
 							_server.PortNumber, newClientId, newClientId == 0 ? "<unknown>" : _server.GetAddressServerAcceptedConnectionFromForSpecificClient (newClientId), newClientId == 0 ? "<unknown>" :  newClientId == UInt32.MaxValue ? "<shutting down>" :
-															 _server.GetPortNumberServerAcceptedConnectionFromForSpecificClient (newClientId).ToString (), _server.EthernetAdapterToBindTo));
+															 _server.GetPortNumberServerAcceptedConnectionFromForSpecificClient (newClientId).ToString (CultureInfo.InvariantCulture), _server.EthernetAdapterToBindTo));
 
 						sair.CompletedSynchronously = true;
 						AsyncAcceptComplete (_server, newClientId, new AsyncAcceptState (sair, callback));
@@ -1342,11 +1381,11 @@ namespace Crestron.SimplSharp.CrestronSockets
 							{
 							try
 								{
-								uint index = queueConnections.Dequeue ();
+								uint index = _queueConnections.Dequeue ();
 
 								Debug.WriteLine (String.Format ("     Server ({0}:{1}, {5}): Dequeuing [index = {2}, remoteEndpoint = {3}:{4}]", _server.AddressToAcceptConnectionFrom,
 									_server.PortNumber, index, index == 0 ? "<unknown>" : _server.GetAddressServerAcceptedConnectionFromForSpecificClient (index), index == 0 ? "<unknown>" : index == UInt32.MaxValue ? "<shutting down>" :
-										_server.GetPortNumberServerAcceptedConnectionFromForSpecificClient (index).ToString (), _server.EthernetAdapterToBindTo));
+										_server.GetPortNumberServerAcceptedConnectionFromForSpecificClient (index).ToString (CultureInfo.InvariantCulture), _server.EthernetAdapterToBindTo));
 
 								AsyncAcceptComplete (_server, index, new AsyncAcceptState (sair, callback));
 								}
@@ -1399,16 +1438,16 @@ namespace Crestron.SimplSharp.CrestronSockets
 			if (saar == null)
 				throw new ArgumentException ("asyncResult");
 
-			if (saar.endacceptCalled)
+			if (saar.EndacceptCalled)
 				throw new InvalidOperationException ("EndAccept already called");
-			saar.endacceptCalled = true;
+			saar.EndacceptCalled = true;
 
 			saar.AsyncWaitHandle.Wait ();
 
-			if (saar.socket == null)
+			if (saar.Socket == null)
 				throw new SocketException (SocketError.SocketError, "Error during accept");
 
-			return saar.socket;
+			return saar.Socket;
 			}
 
 		private void AsyncAcceptComplete (TCPServer cbServer, uint newClientId, object state)
@@ -1424,18 +1463,18 @@ namespace Crestron.SimplSharp.CrestronSockets
 
 			if (newClientId != 0 && newClientId != UInt32.MaxValue)
 				{
-				iar.socket = new CrestronServerSocket (this, newClientId);
+				iar.Socket = new CrestronServerSocket (this, newClientId);
 
-				lock (dictServerSockets)
+				lock (_dictServerSockets)
 					{
 					CrestronServerSocket oldSocket;
-					if (dictServerSockets.TryGetValue (newClientId, out oldSocket))
+					if (_dictServerSockets.TryGetValue (newClientId, out oldSocket))
 						{
-						oldSocket._listener = null;
-						dictServerSockets.Remove (newClientId);
+						oldSocket.Listener = null;
+						_dictServerSockets.Remove (newClientId);
 						}
 
-					dictServerSockets.Add (newClientId, iar.socket);
+					_dictServerSockets.Add (newClientId, iar.Socket);
 					}
 				}
 
@@ -1467,10 +1506,10 @@ namespace Crestron.SimplSharp.CrestronSockets
 				_server.Stop ();
 
 				KeyValuePair<uint, CrestronServerSocket>[] dictServerEntries;
-				lock (dictServerSockets)
+				lock (_dictServerSockets)
 					{
-					dictServerEntries = dictServerSockets.ToArray ();
-					dictServerSockets.Clear ();
+					dictServerEntries = _dictServerSockets.ToArray ();
+					_dictServerSockets.Clear ();
 					}
 
 				foreach (var kvp in dictServerEntries)
@@ -1478,7 +1517,7 @@ namespace Crestron.SimplSharp.CrestronSockets
 					Debug.WriteLine (
 						String.Format (
 							"     Disposing client index: {0} [endpoint = {4}, waitingClose = {1}, pendingSend = {2}, pendingReceive = {3}, disposed = {5}]",
-							kvp.Key, kvp.Value.waitingClose, kvp.Value.pendingSend, kvp.Value.pendingReceive,
+							kvp.Key, kvp.Value.WaitingClose, kvp.Value.PendingSend, kvp.Value.PendingReceive,
 							kvp.Value.Disposed ? "<unknown>" : kvp.Value.InternalRemoteEndPoint.ToString (), kvp.Value.Disposed));
 
 					((IDisposable)kvp.Value).Dispose ();
@@ -1491,7 +1530,9 @@ namespace Crestron.SimplSharp.CrestronSockets
 
 				_server.DisconnectAll ();
 				}
-			catch (Exception)
+// ReSharper disable EmptyGeneralCatchClause
+			catch 
+// ReSharper restore EmptyGeneralCatchClause
 				{
 				}
 
@@ -1518,10 +1559,10 @@ namespace Crestron.SimplSharp.CrestronSockets
 
 	public class SocketSendAsyncResult : IAsyncResult
 		{
-		private readonly CEventHandle waitHandle = new CEvent (false, false);
-		internal SocketErrorCodes errorCode;
-		internal int dataSent;
-		internal bool endsendCalled;
+		private readonly CEventHandle _waitHandle = new CEvent (false, false);
+		internal SocketErrorCodes ErrorCode;
+		internal int DataSent;
+		internal bool EndsendCalled;
 
 		public SocketStatus Status
 			{
@@ -1539,7 +1580,7 @@ namespace Crestron.SimplSharp.CrestronSockets
 
 		public CEventHandle AsyncWaitHandle
 			{
-			get { return waitHandle; }
+			get { return _waitHandle; }
 			}
 
 		public bool CompletedSynchronously
@@ -1564,10 +1605,10 @@ namespace Crestron.SimplSharp.CrestronSockets
 
 	public class SocketReceiveAsyncResult : IAsyncResult
 		{
-		private readonly CEventHandle waitHandle = new CEvent (false, false);
-		internal SocketErrorCodes errorCode;
-		internal int dataReceived;
-		internal bool endreceiveCalled;
+		private readonly CEventHandle _waitHandle = new CEvent (false, false);
+		internal SocketErrorCodes ErrorCode;
+		internal int DataReceived;
+		internal bool EndreceiveCalled;
 
 		public SocketStatus Status
 			{
@@ -1585,7 +1626,7 @@ namespace Crestron.SimplSharp.CrestronSockets
 
 		public CEventHandle AsyncWaitHandle
 			{
-			get { return waitHandle; }
+			get { return _waitHandle; }
 			}
 
 		public bool CompletedSynchronously
@@ -1610,9 +1651,9 @@ namespace Crestron.SimplSharp.CrestronSockets
 
 	public class SocketAcceptAsyncResult : IAsyncResult
 		{
-		private readonly CEventHandle waitHandle = new CEvent (false, false);
-		internal CrestronServerSocket socket;
-		internal bool endacceptCalled;
+		private readonly CEventHandle _waitHandle = new CEvent (false, false);
+		internal CrestronServerSocket Socket;
+		internal bool EndacceptCalled;
 
 		public SocketStatus Status
 			{
@@ -1630,7 +1671,7 @@ namespace Crestron.SimplSharp.CrestronSockets
 
 		public CEventHandle AsyncWaitHandle
 			{
-			get { return waitHandle; }
+			get { return _waitHandle; }
 			}
 
 		public bool CompletedSynchronously

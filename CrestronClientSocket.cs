@@ -131,14 +131,14 @@ namespace Crestron.SimplSharp.CrestronSockets
 				}
 			}
 
-		public override void Bind (IPEndPoint endPoint)
+		public override void Bind (IPEndPoint localEp)
 			{
 			var client = _client;
 
 			if (client.PortNumber != 0 && client.PortNumber != 65535)
 				throw new SocketException (SocketError.InvalidArgument, "Socket already bound");
 
-			client.PortNumber = endPoint.Port;
+			client.PortNumber = localEp.Port;
 			}
 
 		public override void Close ()
@@ -312,7 +312,7 @@ namespace Crestron.SimplSharp.CrestronSockets
 			return size;
 			}
 
-		public override int SendTo (byte[] buffer, int offset, int size, SocketFlags socketFlags, IPEndPoint remoteEP)
+		public override int SendTo (byte[] buffer, int offset, int size, SocketFlags socketFlags, IPEndPoint remoteEp)
 			{
 			return Send (buffer, offset, size, socketFlags);
 			}

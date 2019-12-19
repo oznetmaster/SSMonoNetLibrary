@@ -182,7 +182,7 @@ namespace Crestron.SimplSharp.CrestronSockets
 			throw new NotSupportedException ();
 			}
 
-		public virtual void Bind (IPEndPoint endPoint)
+		public virtual void Bind (IPEndPoint localEp)
 			{
 			throw new NotSupportedException ();
 			}
@@ -260,17 +260,9 @@ namespace Crestron.SimplSharp.CrestronSockets
 			if (buffers == null)
 				throw new ArgumentNullException ("buffers");
 
-			int total = 0;
+			var buff = buffers.SelectMany (seg => seg.Array.Skip (seg.Offset).Take (seg.Count)).ToArray ();
 
-			foreach (var buffer in buffers)
-				{
-				int cnt = Send (buffer.Array, buffer.Offset, buffer.Count, flags);
-				total += cnt;
-				if (cnt < buffer.Count)
-					break;
-				}
-
-			return total;
+			return Send (buff, 0, buff.Length, flags);
 			}
 
 		public virtual int Send (byte[] buffer, int offset, int size, SocketFlags socketFlags)
@@ -298,7 +290,7 @@ namespace Crestron.SimplSharp.CrestronSockets
 			return SendTo (buffer, 0, size, socketFlags, remoteEP);
 			}
 
-		public virtual int SendTo (byte[] buffer, int offset, int size, SocketFlags socketFlags, IPEndPoint remoteEP)
+		public virtual int SendTo (byte[] buffer, int offset, int size, SocketFlags socketFlags, IPEndPoint remoteEp)
 			{
 			CheckDisposed ();
 
@@ -341,17 +333,23 @@ namespace Crestron.SimplSharp.CrestronSockets
 			if (buffers == null)
 				throw new ArgumentNullException ("buffers");
 
-			int total = 0;
+			int size = buffers.Aggregate (0, (sz, seg) => sz + seg.Count);
+			var buf = new byte[size];
 
-			foreach (var buffer in buffers)
+			var cnt = Receive (buf, 0, size, flags);
+			var tcnt = cnt;
+			var ix = 0;
+
+			foreach (var seg in buffers)
 				{
-				int cnt = Receive (buffer.Array, buffer.Offset, buffer.Count, flags);
-				total += cnt;
-				if (cnt < buffer.Count)
+				Buffer.BlockCopy (buf, ix, seg.Array, seg.Offset, tcnt >= seg.Count ? seg.Count : tcnt);
+				ix += seg.Count;
+				tcnt -= seg.Count;
+				if (tcnt <= 0)
 					break;
 				}
 
-			return total;
+			return cnt;
 			}
 
 		public virtual int Receive (byte[] buffer, int offset, int size, SocketFlags socketFlags)

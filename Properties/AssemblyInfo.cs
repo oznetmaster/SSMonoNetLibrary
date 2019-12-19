@@ -11,4 +11,5 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("SSMonoSsdpLibrary")]
 [assembly: InternalsVisibleTo("SSMonoSsdpClientLibrary")]
 [assembly: InternalsVisibleTo("SSharpWebSocketLibrary")]
+[assembly: InternalsVisibleTo("SSMonoBouncyNetWebLibrary")]
 

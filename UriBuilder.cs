@@ -33,17 +33,17 @@ namespace SSMono
 	{
 	public class UriBuilder
 		{
-		private string scheme;
-		private string host;
-		private int port;
-		private string path;
-		private string query;
-		private string fragment;
-		private string username;
-		private string password;
+		private string scheme = "http";
+		private string host = "localhost";
+		private int port = -1;
+		private string path = "/";
+		private string query = String.Empty;
+		private string fragment = String.Empty;
+		private string username = String.Empty;
+		private string password = String.Empty;
 
 		private Uri uri;
-		private bool modified;
+		private bool modified = true;
 
 
 		// Constructors
@@ -74,7 +74,7 @@ namespace SSMono
 
 		public UriBuilder (Uri uri)
 			{
-#if NET_4_0
+#if NET_4_0 || SSHARP
 			if (uri == null)
 				throw new ArgumentNullException ("uri");
 #endif
@@ -103,19 +103,25 @@ namespace SSMono
 
 		private void Initialize (Uri uri)
 			{
-			Initialize (uri.Scheme, uri.Host, uri.Port, uri.AbsolutePath, String.Empty);
+			scheme = uri.Scheme;
+			host = uri.Host;
+			port = uri.Port;
+			path = uri.AbsolutePath;
 			fragment = uri.Fragment;
 			query = uri.Query;
-			username = uri.UserInfo;
-			int pos = username.IndexOf (':');
-			if (pos != -1)
+			string userInfo = uri.UserInfo;
+			if (!String.IsNullOrEmpty (userInfo))
 				{
-				password = username.Substring (pos + 1);
-				username = username.Substring (0, pos);
-				}
-			else
-				{
-				password = String.Empty;
+				int pos = userInfo.IndexOf (':');
+				if (pos != -1)
+					{
+					password = userInfo.Substring (pos + 1);
+					username = userInfo.Substring (0, pos);
+					}
+				else
+					{
+					username = userInfo;
+					}
 				}
 			}
 
@@ -127,11 +133,6 @@ namespace SSMono
 			Host = host;
 			Port = port;
 			Path = pathValue;
-			query = String.Empty;
-			fragment = String.Empty;
-			Path = pathValue;
-			username = String.Empty;
-			password = String.Empty;
 
 			if (String.IsNullOrEmpty (extraValue))
 				return;
